@@ -1,0 +1,56 @@
+CODE CUTTING STOCK………………………………………………………………………………………………………….
+def calculatePatterns(totalRollLength,lenOpts,head): 
+    if lenOpts:
+        patterns =[]
+        opt = lenOpts[0]
+        for rep in range(int(totalRollLength/opt)+1):
+            l = totalRollLength - rep*opt 
+            h = head[:]
+            h.append(rep)
+            patterns.extend(calculatePatterns(l, lenOpts[1:], h))
+    else:
+        patterns = [head]
+    return patterns
+def makePatterns(totalRollLength,lenOpts):
+    patterns = calculatePatterns(totalRollLength,lenOpts,[])
+    PatternNames = []
+    for i in range(len(patterns)):
+        PatternNames += ["P"+str(i)]
+    trim = {}
+    for name,pattern in zip(PatternNames,patterns):
+        ssum = 0
+        for rep,l in zip(pattern,lenOpts):
+            ssum += rep*l
+        trim[name] = totalRollLength - ssum
+    print ("Lens: %s" %lenOpts )
+    for name,pattern in zip(PatternNames,patterns):
+        print (name + "  = %s"%pattern) 
+    return (PatternNames,patterns,trim)
+totalRollLength = 60
+trimValue = 0.04
+LenOpts = ["12","15","20","24","30","45"]
+rollData = {
+              "12" :   [48],
+              "15":   [19],
+              "20":   [22],
+              "24":   [32],      
+              "30":   [14],              
+              "45":   [7]
+      }
+(PatternNames,patterns,trim) = makePatterns(totalRollLength,[int(l) for l in LenOpts])
+#(rollDemand,surplusPrice) = splitDict(rollData)
+patterns = makeDict([PatternNames,LenOpts],patterns,0)
+prob = LpProblem("Cutting Stock Problem",LpMinimize)
+#pattVars = LpVariable.dicts("Patt",PatternNames,0,None,LpInteger)
+#surplusVars = LpVariable.dicts("Surp",LenOpts,0,None,LpInteger)
+prob += lpSum([pattVars[i]]) - lpSum([surplusVars[i]*surplusPrice[i] for i in LenOpts]) - lpSum([pattVars[i]*trim[i]*trimValue for i in PatternNames]),"Net Production Cost"
+for j in LenOpts:
+    prob += lpSum([pattVars[i]*patterns[i][j] for i in PatternNames]) - surplusVars[j]>=rollDemand[j],"Ensuring enough %s cm rolls"%j
+prob.writeLP("SpongeRollProblem.lp")
+
+prob.solve(CPLEX_DLL())
+print ("Status:", LpStatus[prob.status])
+for v in prob.variables():
+    print (v.name, "=", v.varValue)
+print ("Production Costs = ", value(prob.objective))
+
